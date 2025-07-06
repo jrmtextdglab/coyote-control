@@ -1,0 +1,96 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Coyote 3.0 Remote</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #181a1b;
+      --fg: #eee;
+      --accent: #ffcc00;
+      --btn-bg: #282c2e;
+      --btn-hover: #3a3f42;
+    }
+    body, button, input { font-family: Arial, sans-serif; }
+    body { background: var(--bg); color: var(--fg); margin: 0; padding: 20px; }
+    h1 { color: var(--accent); text-align: center; }
+    #top { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
+    input { padding: 10px; border: none; border-radius: 4px; width: calc(100% - 120px); max-width: 300px; }
+    button { background: var(--btn-bg); color: var(--fg); border: none; padding: 10px; border-radius: 4px;
+             flex: 1; min-width: 100px; cursor: pointer; }
+    button:hover { background: var(--btn-hover); }
+    #buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+    #log { background: #222; padding: 10px; height: 150px; overflow-y: auto; font-family: monospace; }
+    #qrbtn { max-width: 100px; }
+  </style>
+</head>
+<body>
+
+  <h1>Coyote 3.0 Steuerung</h1>
+
+  <div id="top">
+    <input id="wsUrl" placeholder="WebSocket-URL mit Token" />
+    <button onclick="scanQR()" id="qrbtn">QR‑Code</button>
+    <button onclick="connect()">Verbinden</button>
+  </div>
+
+  <div id="buttons">
+    <button onclick="sendCmd('start')">▶️ Start</button>
+    <button onclick="sendCmd('stop')">🛑 Stop</button>
+    <button onclick="sendCmd('level_up')">➕ Intensität</button>
+    <button onclick="sendCmd('level_down')">➖ Intensität</button>
+    <button onclick="sendCmd('pattern_next')">🔁 Muster</button>
+    <button onclick="sendCmd('pattern_prev')">⏪ Muster zurück</button>
+  </div>
+
+  <div id="log"></div>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    let socket = null;
+    const logbox = document.getElementById('log');
+
+    function log(msg) {
+      const line = document.createElement('div');
+      line.textContent = msg;
+      logbox.appendChild(line);
+      logbox.scrollTop = logbox.scrollHeight;
+    }
+
+    function connect() {
+      const url = document.getElementById('wsUrl').value.trim();
+      if (!url) return alert('Bitte WebSocket-URL einfügen!');
+      if (socket) socket.close();
+      socket = new WebSocket(url);
+      socket.onopen    = () => log('✅ Verbunden');
+      socket.onclose   = () => log('❌ Verbindung getrennt');
+      socket.onerror   = err => log('⚠️ Fehler: ' + err);
+      socket.onmessage = ev  => log('⬅️ ' + ev.data);
+    }
+
+    function sendCmd(cmd) {
+      if (!socket || socket.readyState !== WebSocket.OPEN) return alert('Nicht verbunden!');
+      const msg = JSON.stringify({ command: cmd });
+      socket.send(msg);
+      log('➡️ ' + msg);
+    }
+
+    function scanQR() {
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      const qr = new Html5Qrcode(div);
+      qr.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 },
+        decoded => {
+          document.getElementById('wsUrl').value = decoded;
+          log('📷 QR erkannt: ' + decoded);
+          qr.stop().then(() => div.remove());
+        },
+        err => {/* no-op */}
+      );
+    }
+  </script>
+
+</body>
+</html>
